@@ -1,0 +1,113 @@
+// LexBoard — Radar de Distribuições
+// Banco PRÓPRIO e separado. Modelo em "fontes" para crescer (comarcas/justiças/áreas).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// Fonte — um recorte a monitorar: tribunal (alias DataJud) + comarca + área.
+// Ex.: { datajudAlias: "api_publica_trt15", orgaoContains: "Ribeirão Preto", area: TRABALHISTA }
+// Adicionar uma comarca/justiça = criar uma nova Fonte (extensibilidade, item 3).
+// ─────────────────────────────────────────────
+enum Area {
+  TRABALHISTA
+  ESTADUAL // TJ (cível/criminal/família etc.)
+  FEDERAL // TRF
+  ELEITORAL // TRE/TSE
+  OUTRO
+}
+
+model Fonte {
+  id            String   @id @default(cuid())
+  nome          String // rótulo amigável: "Trabalhista — Ribeirão Preto"
+  datajudAlias  String // ex.: "api_publica_trt15", "api_publica_tjsp"
+  // Filtro pelo NOME do órgão julgador no DataJud (a "comarca"/vara). Ex.: "Ribeirão Preto".
+  orgaoContains String
+  area          Area     @default(TRABALHISTA)
+  ativo         Boolean  @default(true)
+  // Controle incremental: maior dataAjuizamento (AAAAMMDDHHMMSS) já ingerido.
+  cursorAjuizamento String?
+  ultimaIngestaoAt  DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  processos Processo[]
+
+  @@unique([datajudAlias, orgaoContains, area])
+  @@map("fontes")
+}
+
+// ─────────────────────────────────────────────
+// Processo — um distribuído captado no DataJud (metadados) + flag de enriquecimento.
+// ─────────────────────────────────────────────
+model Processo {
+  id              String   @id @default(cuid())
+  fonteId         String
+  numero          String // número CNJ (com máscara)
+  numeroDigits    String // só dígitos (dedupe/consulta)
+  tribunal        String?
+  orgaoJulgador   String? // vara/comarca
+  classe          String?
+  assuntos        String? // "; "-joined
+  dataAjuizamento DateTime
+  grau            String?
+  nivelSigilo     Int?
+  // Já buscamos as partes no DJEN? (enriquecimento em 2 etapas)
+  partesBuscadas  Boolean  @default(false)
+  partesBuscadaAt DateTime?
+  createdAt       DateTime @default(now())
+
+  fonte  Fonte   @relation(fields: [fonteId], references: [id], onDelete: Cascade)
+  partes Parte[]
+
+  @@unique([fonteId, numeroDigits])
+  @@index([fonteId, dataAjuizamento])
+  @@index([partesBuscadas])
+  @@map("processos")
+}
+
+// ─────────────────────────────────────────────
+// Parte — reclamante (polo A) / reclamado (polo P), vinda do DJEN (destinatarios).
+// ─────────────────────────────────────────────
+enum Polo {
+  A // ativo (reclamante/exequente/autor)
+  P // passivo (reclamado/executado/réu) — é o que ranqueamos
+}
+
+model Parte {
+  id         String @id @default(cuid())
+  processoId String
+  nome       String
+  // Nome normalizado (uppercase, sem "- ME"/"EIRELI"/"EM RECUPERAÇÃO…") p/ ranking.
+  nomeNorm   String
+  polo       Polo
+  // É pessoa jurídica? (heurística: LTDA/S.A./EIRELI/ME/EPP/MUNICÍPIO/ESTADO…)
+  ehEmpresa  Boolean @default(false)
+
+  processo Processo @relation(fields: [processoId], references: [id], onDelete: Cascade)
+
+  @@index([nomeNorm])
+  @@index([polo])
+  @@map("partes")
+}
+
+// ─────────────────────────────────────────────
+// User — login simples (poucos usuários, criados pelo admin).
+// ─────────────────────────────────────────────
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  isAdmin      Boolean  @default(false)
+  lastLoginAt  DateTime?
+  createdAt    DateTime @default(now())
+
+  @@map("users")
+}
