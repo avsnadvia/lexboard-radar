@@ -83,6 +83,10 @@ router.patch(
         nome: typeof b.nome === "string" ? b.nome : undefined,
         ativo: typeof b.ativo === "boolean" ? b.ativo : undefined,
         orgaoContains: typeof b.orgaoContains === "string" ? b.orgaoContains : undefined,
+        orgaoContainsAny:
+          typeof b.orgaoContainsAny === "string" ? b.orgaoContainsAny || null : undefined,
+        classeContainsAny:
+          typeof b.classeContainsAny === "string" ? b.classeContainsAny || null : undefined,
         cursorAjuizamento:
           typeof b.cursorAjuizamento === "string" ? b.cursorAjuizamento : undefined,
       },
@@ -104,6 +108,16 @@ router.post(
     }
     res.json({ ok: true, message: "Ingestão iniciada em segundo plano" });
     runFonte(id, 2000).catch((err) => console.error("Erro na ingestão da fonte", id, err));
+  })
+);
+
+// Excluir fonte (admin) — remove a fonte e todos os seus processos (cascade).
+router.delete(
+  "/fontes/:id",
+  requireAdmin,
+  wrap(async (req, res) => {
+    await prisma.fonte.delete({ where: { id: req.params.id } });
+    res.json({ ok: true });
   })
 );
 

@@ -56,6 +56,13 @@ export default function Fontes({ onClose }: { onClose: () => void }) {
     await api.runFonte(f.id);
     alert(`Ingestão de "${f.nome}" iniciada em segundo plano.`);
   }
+  async function excluir(f: Fonte) {
+    if (!confirm(`Excluir a fonte "${f.nome}" e todos os seus processos? Não dá para desfazer.`)) {
+      return;
+    }
+    await api.excluirFonte(f.id);
+    await carregar();
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/40" onClick={onClose}>
@@ -107,6 +114,13 @@ export default function Fontes({ onClose }: { onClose: () => void }) {
                     </Button>
                     <Button variant="ghost" onClick={() => void toggle(f)}>
                       {f.ativo ? "Desativar" : "Ativar"}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="!text-red-600 hover:!bg-red-50"
+                      onClick={() => void excluir(f)}
+                    >
+                      Excluir
                     </Button>
                   </div>
                 </div>
@@ -165,7 +179,8 @@ export default function Fontes({ onClose }: { onClose: () => void }) {
                   onChange={(e) => setNova({ ...nova, area: e.target.value })}
                 >
                   <option value="TRABALHISTA">Trabalhista</option>
-                  <option value="CRIMINAL">Criminal</option>
+                  <option value="CRIMINAL">Criminal (Estadual)</option>
+                  <option value="CRIMINAL_FEDERAL">Criminal Federal</option>
                   <option value="ESTADUAL">Estadual</option>
                   <option value="FEDERAL">Federal</option>
                   <option value="ELEITORAL">Eleitoral</option>

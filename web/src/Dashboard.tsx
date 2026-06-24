@@ -54,12 +54,22 @@ const rotuloMes = (m: string) => {
 const AREA_LABEL: Record<string, string> = {
   TRABALHISTA: "Trabalhista",
   CRIMINAL: "Criminal",
+  CRIMINAL_FEDERAL: "Criminal Federal",
   ESTADUAL: "Cível/Estadual",
   FEDERAL: "Federal",
   ELEITORAL: "Eleitoral",
   OUTRO: "Outros",
 };
-const AREA_ORDEM = ["TRABALHISTA", "CRIMINAL", "ESTADUAL", "FEDERAL", "ELEITORAL", "OUTRO"];
+const AREA_ORDEM = [
+  "TRABALHISTA",
+  "CRIMINAL",
+  "CRIMINAL_FEDERAL",
+  "ESTADUAL",
+  "FEDERAL",
+  "ELEITORAL",
+  "OUTRO",
+];
+const AREAS_CRIMINAIS = ["CRIMINAL", "CRIMINAL_FEDERAL"];
 
 const PAGE_SIZE = 25;
 
@@ -117,7 +127,7 @@ export default function Dashboard({ user, onLogout }: { user: User; onLogout: ()
       setEvolucao(ev.items);
       setProcessos(pr.items);
       setTotal(pr.total);
-      if (f.area === "CRIMINAL") {
+      if (AREAS_CRIMINAIS.includes(f.area)) {
         const semSelecao = { ...f, varas: [], assuntos: [] };
         const [tipos, varas, optT, optV] = await Promise.all([
           api.agregado(qsDe(f, { campo: "assunto", limit: "15" })),
@@ -157,7 +167,7 @@ export default function Dashboard({ user, onLogout }: { user: User; onLogout: ()
   const totalPaginas = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const maxQtd = ranking.length ? ranking[0].qtd : 1;
   const maxMes = evolucao.length ? Math.max(...evolucao.map((e) => e.qtd)) : 1;
-  const ehCriminal = filtros.area === "CRIMINAL";
+  const ehCriminal = AREAS_CRIMINAIS.includes(filtros.area);
   const maxTipo = crimePorTipo.length ? crimePorTipo[0].qtd : 1;
   const maxVara = crimePorVara.length ? crimePorVara[0].qtd : 1;
   const areasDisponiveis = AREA_ORDEM.filter((a) => fontes.some((f) => f.area === a));

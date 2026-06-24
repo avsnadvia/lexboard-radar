@@ -17,7 +17,8 @@ datasource db {
 // ─────────────────────────────────────────────
 enum Area {
   TRABALHISTA
-  CRIMINAL // TJ — varas criminais
+  CRIMINAL // TJ — varas criminais (estadual)
+  CRIMINAL_FEDERAL // TRF — criminal federal (varas mistas, filtrado por classe)
   ESTADUAL // TJ (cível/família/fazenda etc.)
   FEDERAL // TRF
   ELEITORAL // TRE/TSE

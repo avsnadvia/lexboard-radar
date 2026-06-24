@@ -93,6 +93,7 @@ export const api = {
     req<Fonte>(`/api/fontes/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   runFonte: (id: string) =>
     req<{ ok: boolean; message: string }>(`/api/fontes/${id}/run`, { method: "POST" }),
+  excluirFonte: (id: string) => req<{ ok: boolean }>(`/api/fontes/${id}`, { method: "DELETE" }),
 };
 
 export async function baixarCsv(path: string, filename: string): Promise<void> {
