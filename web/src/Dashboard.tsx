@@ -10,6 +10,8 @@ interface Filtros {
   dataIni: string;
   dataFim: string;
   classe: string;
+  varas: string[];
+  assuntos: string[];
 }
 const FILTROS_VAZIO: Filtros = {
   fonteId: "",
@@ -18,13 +20,20 @@ const FILTROS_VAZIO: Filtros = {
   dataIni: "",
   dataFim: "",
   classe: "",
+  varas: [],
+  assuntos: [],
 };
 
 function qsDe(f: Filtros, extra: Record<string, string> = {}): string {
   const p = new URLSearchParams();
-  (Object.entries(f) as [string, string][]).forEach(([k, v]) => {
-    if (v) p.set(k, v);
-  });
+  if (f.fonteId) p.set("fonteId", f.fonteId);
+  if (f.area) p.set("area", f.area);
+  if (f.q) p.set("q", f.q);
+  if (f.dataIni) p.set("dataIni", f.dataIni);
+  if (f.dataFim) p.set("dataFim", f.dataFim);
+  if (f.classe) p.set("classe", f.classe);
+  if (f.varas.length) p.set("varas", f.varas.join("||"));
+  if (f.assuntos.length) p.set("assuntos", f.assuntos.join("||"));
   Object.entries(extra).forEach(([k, v]) => {
     if (v) p.set(k, v);
   });
@@ -63,6 +72,8 @@ export default function Dashboard({ user, onLogout }: { user: User; onLogout: ()
   const [ranking, setRanking] = useState<{ empresa: string; qtd: number }[]>([]);
   const [crimePorTipo, setCrimePorTipo] = useState<{ rotulo: string; qtd: number }[]>([]);
   const [crimePorVara, setCrimePorVara] = useState<{ rotulo: string; qtd: number }[]>([]);
+  const [opcoesTipo, setOpcoesTipo] = useState<{ rotulo: string; qtd: number }[]>([]);
+  const [opcoesVara, setOpcoesVara] = useState<{ rotulo: string; qtd: number }[]>([]);
   const [evolucao, setEvolucao] = useState<{ mes: string; qtd: number }[]>([]);
   const [processos, setProcessos] = useState<Processo[]>([]);
   const [total, setTotal] = useState(0);
@@ -107,18 +118,25 @@ export default function Dashboard({ user, onLogout }: { user: User; onLogout: ()
       setProcessos(pr.items);
       setTotal(pr.total);
       if (f.area === "CRIMINAL") {
-        const [tipos, varas] = await Promise.all([
+        const semSelecao = { ...f, varas: [], assuntos: [] };
+        const [tipos, varas, optT, optV] = await Promise.all([
           api.agregado(qsDe(f, { campo: "assunto", limit: "15" })),
           api.agregado(qsDe(f, { campo: "orgao", limit: "15" })),
+          api.agregado(qsDe(semSelecao, { campo: "assunto", limit: "100" })),
+          api.agregado(qsDe(semSelecao, { campo: "orgao", limit: "100" })),
         ]);
         setCrimePorTipo(tipos.items);
         setCrimePorVara(varas.items);
+        setOpcoesTipo(optT.items);
+        setOpcoesVara(optV.items);
         setRanking([]);
       } else {
         const rk = await api.ranking(qsDe(f, { limit: "15" }));
         setRanking(rk.items);
         setCrimePorTipo([]);
         setCrimePorVara([]);
+        setOpcoesTipo([]);
+        setOpcoesVara([]);
       }
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Erro ao carregar");
@@ -238,6 +256,22 @@ export default function Dashboard({ user, onLogout }: { user: User; onLogout: ()
               />
             </Field>
           </div>
+          {ehCriminal && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              <MultiSelect
+                label="Tipos de crime"
+                options={opcoesTipo}
+                selected={filtros.assuntos}
+                onChange={(vals) => aplicar({ assuntos: vals })}
+              />
+              <MultiSelect
+                label="Varas"
+                options={opcoesVara}
+                selected={filtros.varas}
+                onChange={(vals) => aplicar({ varas: vals })}
+              />
+            </div>
+          )}
           <div className="mt-3 flex items-center justify-between">
             <button
               onClick={() => {
@@ -491,5 +525,75 @@ function CardBarras({
         </div>
       )}
     </Card>
+  );
+}
+
+function MultiSelect({
+  label,
+  options,
+  selected,
+  onChange,
+}: {
+  label: string;
+  options: { rotulo: string; qtd: number }[];
+  selected: string[];
+  onChange: (vals: string[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const toggle = (v: string) =>
+    onChange(selected.includes(v) ? selected.filter((x) => x !== v) : [...selected, v]);
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition ${
+          selected.length
+            ? "border-brand-blue bg-blue-50 text-brand-bluedark"
+            : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
+        }`}
+      >
+        {label}
+        {selected.length > 0 && (
+          <span className="rounded-full bg-brand-blue px-1.5 text-xs font-bold text-white">
+            {selected.length}
+          </span>
+        )}
+        <span className="text-slate-400">▾</span>
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute z-20 mt-1 max-h-72 w-80 overflow-auto rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
+            {selected.length > 0 && (
+              <button
+                onClick={() => onChange([])}
+                className="mb-1 w-full rounded px-2 py-1 text-left text-xs font-semibold text-brand-blue hover:bg-slate-50"
+              >
+                Limpar seleção
+              </button>
+            )}
+            {options.length === 0 && (
+              <p className="px-2 py-3 text-center text-xs text-slate-400">Sem opções.</p>
+            )}
+            {options.map((o) => (
+              <label
+                key={o.rotulo}
+                className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-slate-50"
+              >
+                <input
+                  type="checkbox"
+                  checked={selected.includes(o.rotulo)}
+                  onChange={() => toggle(o.rotulo)}
+                />
+                <span className="flex-1 truncate text-slate-700" title={o.rotulo}>
+                  {o.rotulo}
+                </span>
+                <span className="text-xs text-slate-400">{o.qtd}</span>
+              </label>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
   );
 }

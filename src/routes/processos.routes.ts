@@ -11,6 +11,10 @@ router.use(requireAuth);
 
 function filtro(q: Record<string, unknown>): ProcessoFiltro {
   const s = (v: unknown) => (typeof v === "string" && v ? v : undefined);
+  const lista = (v: unknown) =>
+    typeof v === "string" && v
+      ? v.split("||").map((x) => x.trim()).filter(Boolean)
+      : undefined;
   return {
     fonteId: s(q.fonteId),
     area: s(q.area),
@@ -18,6 +22,8 @@ function filtro(q: Record<string, unknown>): ProcessoFiltro {
     dataIni: s(q.dataIni),
     dataFim: s(q.dataFim),
     classe: s(q.classe),
+    varas: lista(q.varas),
+    assuntos: lista(q.assuntos),
   };
 }
 

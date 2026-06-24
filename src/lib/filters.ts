@@ -8,6 +8,8 @@ export interface ProcessoFiltro {
   dataIni?: string; // YYYY-MM-DD
   dataFim?: string; // YYYY-MM-DD
   classe?: string;
+  varas?: string[]; // filtra por órgão julgador exato (uma ou mais varas)
+  assuntos?: string[]; // filtra por tipo de crime/assunto (um ou mais)
 }
 
 const AREAS = new Set<string>(Object.values(Area));
@@ -18,6 +20,12 @@ export function buildProcessoWhere(f: ProcessoFiltro): Prisma.ProcessoWhereInput
   if (f.fonteId) where.fonteId = f.fonteId;
   if (f.area && AREAS.has(f.area)) where.fonte = { area: f.area as Area };
   if (f.classe) where.classe = { contains: f.classe, mode: "insensitive" };
+  if (f.varas && f.varas.length > 0) where.orgaoJulgador = { in: f.varas };
+  if (f.assuntos && f.assuntos.length > 0) {
+    where.AND = [
+      { OR: f.assuntos.map((a) => ({ assuntos: { contains: a, mode: "insensitive" as const } })) },
+    ];
+  }
 
   const data: Prisma.DateTimeFilter = {};
   if (f.dataIni) data.gte = new Date(`${f.dataIni}T00:00:00.000Z`);
