@@ -44,7 +44,15 @@ export async function ingestDistribuidos(
   onPage?: (n: number) => void
 ): Promise<IngestResult> {
   const fonte = await prisma.fonte.findUniqueOrThrow({ where: { id: fonteId } });
-  const gte = fonte.cursorAjuizamento ?? env.datajudStart;
+  // Janela de busca: do cursor (backfill inicial) OU dos últimos RESCAN_DIAS — o que for
+  // mais antigo. O re-scan recente garante que processos publicados COM ATRASO pelo DataJud
+  // (defasagem do mês corrente, indexação fora de ordem) sejam capturados; o dedupe evita duplicar.
+  const RESCAN_DIAS = Number(process.env.DATAJUD_RESCAN_DAYS ?? "120");
+  const p2 = (n: number) => String(n).padStart(2, "0");
+  const rd = new Date(Date.now() - RESCAN_DIAS * 86_400_000);
+  const rescanFrom = `${rd.getUTCFullYear()}${p2(rd.getUTCMonth() + 1)}${p2(rd.getUTCDate())}000000`;
+  const base = fonte.cursorAjuizamento ?? env.datajudStart;
+  const gte = base < rescanFrom ? base : rescanFrom;
   const lte = agoraAjuizamento();
 
   const hits = await datajudDistribuidos({

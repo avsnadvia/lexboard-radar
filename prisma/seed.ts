@@ -23,16 +23,17 @@ async function main() {
     },
   });
 
-  // Usuário admin inicial.
+  // Usuário admin: a senha é SEMPRE sincronizada com ADMIN_PASSWORD a cada deploy.
   const email = process.env.ADMIN_EMAIL ?? "rodrigo@avsn.com.br";
   const password = process.env.ADMIN_PASSWORD ?? "trocar-no-primeiro-acesso";
+  const passwordHash = bcrypt.hashSync(password, 10);
   await prisma.user.upsert({
     where: { email },
-    update: {},
+    update: { passwordHash, isAdmin: true },
     create: {
       email,
       name: "Rodrigo",
-      passwordHash: bcrypt.hashSync(password, 10),
+      passwordHash,
       isAdmin: true,
     },
   });
