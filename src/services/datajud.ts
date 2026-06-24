@@ -17,6 +17,8 @@ export interface DataJudQuery {
   orgaoContains: string; // ex.: "Ribeirão Preto"
   // Opcional: o órgão deve conter PELO MENOS UMA destas palavras (ex.: ["Criminal","Júri"]).
   orgaoContainsAny?: string[];
+  // Opcional: a CLASSE deve conter pelo menos uma destas palavras (varas mistas → isola criminal).
+  classeContainsAny?: string[];
   gte: string; // AAAAMMDDHHMMSS
   lte: string; // AAAAMMDDHHMMSS
   pageSize?: number;
@@ -55,6 +57,17 @@ export async function datajudDistribuidos(q: DataJudQuery): Promise<DataJudHit[]
           should: q.orgaoContainsAny.flatMap((kw) => [
             { match_phrase: { "orgaoJulgador.nome": kw } },
             { wildcard: { "orgaoJulgador.nome": `*${kw}*` } },
+          ]),
+        },
+      });
+    }
+    if (q.classeContainsAny && q.classeContainsAny.length > 0) {
+      must.push({
+        bool: {
+          minimum_should_match: 1,
+          should: q.classeContainsAny.flatMap((kw) => [
+            { match_phrase: { "classe.nome": kw } },
+            { wildcard: { "classe.nome": `*${kw}*` } },
           ]),
         },
       });

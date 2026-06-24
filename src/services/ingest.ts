@@ -59,10 +59,15 @@ export async function ingestDistribuidos(
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
+  const classeContainsAny = (fonte.classeContainsAny ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
   const hits = await datajudDistribuidos({
     alias: fonte.datajudAlias,
     orgaoContains: fonte.orgaoContains,
     orgaoContainsAny: orgaoContainsAny.length > 0 ? orgaoContainsAny : undefined,
+    classeContainsAny: classeContainsAny.length > 0 ? classeContainsAny : undefined,
     gte,
     lte,
     onPage,

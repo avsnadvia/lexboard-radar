@@ -7,6 +7,7 @@ const NOVA_VAZIA = {
   datajudAlias: "",
   orgaoContains: "",
   orgaoContainsAny: "",
+  classeContainsAny: "",
   area: "TRABALHISTA",
   cursorAjuizamento: "20260101000000",
 };
@@ -148,6 +149,13 @@ export default function Fontes({ onClose }: { onClose: () => void }) {
                 value={nova.orgaoContainsAny}
                 onChange={(e) => setNova({ ...nova, orgaoContainsAny: e.target.value })}
                 placeholder="Criminal,Júri"
+              />
+            </Field>
+            <Field label="Classe contém qualquer (opcional — varas mistas/Federal)">
+              <Input
+                value={nova.classeContainsAny}
+                onChange={(e) => setNova({ ...nova, classeContainsAny: e.target.value })}
+                placeholder="Penal,Inquérito,Habeas Corpus"
               />
             </Field>
             <div className="grid grid-cols-2 gap-3">

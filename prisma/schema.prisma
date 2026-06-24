@@ -33,6 +33,9 @@ model Fonte {
   // Opcional: o órgão deve conter PELO MENOS UMA destas palavras (separadas por vírgula).
   // Ex.: "Criminal,Júri" para pegar todas as varas criminais da comarca.
   orgaoContainsAny String?
+  // Opcional: a CLASSE deve conter pelo menos uma destas palavras (varas mistas:
+  // isola criminal por classe, ex.: "Penal,Inquérito,Habeas Corpus").
+  classeContainsAny String?
   area          Area     @default(TRABALHISTA)
   ativo         Boolean  @default(true)
   // Controle incremental: maior dataAjuizamento (AAAAMMDDHHMMSS) já ingerido.

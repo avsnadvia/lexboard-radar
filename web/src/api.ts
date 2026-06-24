@@ -41,6 +41,7 @@ export interface Fonte {
   datajudAlias: string;
   orgaoContains: string;
   orgaoContainsAny?: string | null;
+  classeContainsAny?: string | null;
   area: string;
   ativo: boolean;
   cursorAjuizamento: string | null;
