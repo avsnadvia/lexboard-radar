@@ -90,6 +90,28 @@ router.get(
   })
 );
 
+// Distribuídos por mês (para o gráfico de evolução).
+router.get(
+  "/evolucao",
+  wrap(async (req, res) => {
+    const where = buildProcessoWhere(filtro(req.query));
+    const rows = await prisma.processo.findMany({
+      where,
+      select: { dataAjuizamento: true },
+    });
+    const meses = new Map<string, number>();
+    for (const r of rows) {
+      const d = r.dataAjuizamento;
+      const m = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+      meses.set(m, (meses.get(m) ?? 0) + 1);
+    }
+    const items = [...meses.entries()]
+      .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+      .map(([mes, qtd]) => ({ mes, qtd }));
+    res.json({ items });
+  })
+);
+
 // Exportar processos filtrados em CSV.
 router.get(
   "/processos.csv",

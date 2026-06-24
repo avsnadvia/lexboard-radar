@@ -78,6 +78,8 @@ export const api = {
     ),
   ranking: (qs: string) =>
     req<{ items: { empresa: string; qtd: number }[] }>(`/api/ranking?${qs}`),
+  evolucao: (qs: string) =>
+    req<{ items: { mes: string; qtd: number }[] }>(`/api/evolucao?${qs}`),
   stats: (qs: string) =>
     req<{ total: number; comPartes: number; semPartes: number }>(`/api/stats?${qs}`),
   fontes: () => req<{ items: Fonte[] }>("/api/fontes"),

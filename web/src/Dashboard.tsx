@@ -36,6 +36,12 @@ const fmtData = (iso: string) => {
   return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("pt-BR");
 };
 
+const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+const rotuloMes = (m: string) => {
+  const [ano, mm] = m.split("-");
+  return `${MESES[Number(mm) - 1] ?? mm}/${ano.slice(2)}`;
+};
+
 const PAGE_SIZE = 25;
 
 export default function Dashboard({ user, onLogout }: { user: User; onLogout: () => void }) {
@@ -45,6 +51,7 @@ export default function Dashboard({ user, onLogout }: { user: User; onLogout: ()
     null
   );
   const [ranking, setRanking] = useState<{ empresa: string; qtd: number }[]>([]);
+  const [evolucao, setEvolucao] = useState<{ mes: string; qtd: number }[]>([]);
   const [processos, setProcessos] = useState<Processo[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -69,13 +76,15 @@ export default function Dashboard({ user, onLogout }: { user: User; onLogout: ()
     setCarregando(true);
     setErro("");
     try {
-      const [st, rk, pr] = await Promise.all([
+      const [st, rk, ev, pr] = await Promise.all([
         api.stats(qsDe(f)),
         api.ranking(qsDe(f, { limit: "15" })),
+        api.evolucao(qsDe(f)),
         api.processos(qsDe(f, { page: String(pg), pageSize: String(PAGE_SIZE) })),
       ]);
       setStats(st);
       setRanking(rk.items);
+      setEvolucao(ev.items);
       setProcessos(pr.items);
       setTotal(pr.total);
     } catch (e) {
@@ -96,6 +105,7 @@ export default function Dashboard({ user, onLogout }: { user: User; onLogout: ()
 
   const totalPaginas = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const maxQtd = ranking.length ? ranking[0].qtd : 1;
+  const maxMes = evolucao.length ? Math.max(...evolucao.map((e) => e.qtd)) : 1;
 
   return (
     <div className="min-h-full">
@@ -204,6 +214,29 @@ export default function Dashboard({ user, onLogout }: { user: User; onLogout: ()
           <StatCard label="Com partes (DJEN)" value={stats?.comPartes ?? 0} />
           <StatCard label="Aguardando partes" value={stats?.semPartes ?? 0} />
         </div>
+
+        {evolucao.length > 0 && (
+          <Card className="p-4">
+            <h2 className="mb-4 text-sm font-bold text-slate-700">Distribuídos por mês</h2>
+            <div className="flex items-end gap-2" style={{ height: 150 }}>
+              {evolucao.map((e) => (
+                <div key={e.mes} className="flex flex-1 flex-col items-center justify-end">
+                  <div className="mb-1 text-xs font-semibold text-slate-500">
+                    {e.qtd.toLocaleString("pt-BR")}
+                  </div>
+                  <div
+                    className="w-full rounded-t bg-brand-blue"
+                    style={{ height: `${Math.max(3, (e.qtd / maxMes) * 110)}px` }}
+                    title={`${rotuloMes(e.mes)}: ${e.qtd}`}
+                  />
+                  <div className="mt-1.5 text-[11px] font-medium text-slate-500">
+                    {rotuloMes(e.mes)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
 
         <Card className="p-4">
           <div className="mb-3 flex items-center justify-between">
