@@ -102,13 +102,10 @@ export default function Dashboard({ user, onLogout }: { user: User; onLogout: ()
       <header className="bg-brand-dark text-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-blue text-sm font-extrabold">
-              LB
+            <div className="rounded-lg bg-white px-2.5 py-1.5">
+              <img src="/lexboard-logo.png" alt="LexBoard" className="h-6 w-auto" />
             </div>
-            <div>
-              <div className="text-sm font-bold leading-none">LexBoard</div>
-              <div className="text-xs text-slate-400">Radar de Distribuições</div>
-            </div>
+            <div className="text-xs text-slate-400">Radar de Distribuições</div>
           </div>
           <div className="flex items-center gap-3 text-sm">
             {user.isAdmin && (

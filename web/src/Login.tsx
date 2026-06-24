@@ -26,11 +26,10 @@ export default function Login({ onLogin }: { onLogin: (u: User) => void }) {
   return (
     <div className="flex min-h-full items-center justify-center bg-brand-dark p-4">
       <div className="w-full max-w-sm">
-        <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-blue text-lg font-extrabold text-white">
-            LB
+        <div className="mb-6 flex flex-col items-center text-center">
+          <div className="mb-3 rounded-2xl bg-white px-6 py-4 shadow-lg">
+            <img src="/lexboard-logo.png" alt="LexBoard" className="h-10 w-auto" />
           </div>
-          <h1 className="text-xl font-bold text-white">LexBoard</h1>
           <p className="text-sm text-slate-400">Radar de Distribuições</p>
         </div>
         <form onSubmit={submit} className="space-y-4 rounded-2xl bg-white p-6 shadow-xl">
