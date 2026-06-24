@@ -1,4 +1,4 @@
-import { Polo } from "@prisma/client";
+import { Polo, Prisma } from "@prisma/client";
 import { prisma } from "../db";
 import { datajudDistribuidos } from "./datajud";
 import { djenPartes } from "./djen";
@@ -63,8 +63,8 @@ export async function ingestDistribuidos(
     onPage,
   });
 
-  let novos = 0;
   let maxCursor = gte;
+  const rows: Prisma.ProcessoCreateManyInput[] = [];
   for (const h of hits) {
     const dig = digits(h.numeroProcesso);
     if (dig.length !== 20) continue;
@@ -73,26 +73,29 @@ export async function ingestDistribuidos(
       .map((a) => a?.nome)
       .filter((x): x is string => Boolean(x))
       .join("; ");
-    try {
-      await prisma.processo.create({
-        data: {
-          fonteId,
-          numero: mascaraCnj(h.numeroProcesso),
-          numeroDigits: dig,
-          tribunal: h.tribunal ?? null,
-          orgaoJulgador: h.orgaoJulgador?.nome ?? null,
-          classe: h.classe?.nome ?? null,
-          assuntos: assuntos || null,
-          dataAjuizamento: parseAjuizamento(h.dataAjuizamento),
-          grau: h.grau ?? null,
-          nivelSigilo: h.nivelSigilo ?? null,
-        },
-      });
-      novos++;
-    } catch (e) {
-      // P2002 = unique violada (já existe) → ignora (idempotente)
-      if ((e as { code?: string }).code !== "P2002") throw e;
-    }
+    rows.push({
+      fonteId,
+      numero: mascaraCnj(h.numeroProcesso),
+      numeroDigits: dig,
+      tribunal: h.tribunal ?? null,
+      orgaoJulgador: h.orgaoJulgador?.nome ?? null,
+      classe: h.classe?.nome ?? null,
+      assuntos: assuntos || null,
+      dataAjuizamento: parseAjuizamento(h.dataAjuizamento),
+      grau: h.grau ?? null,
+      nivelSigilo: h.nivelSigilo ?? null,
+    });
+  }
+  // Inserção em LOTE com skipDuplicates (ON CONFLICT DO NOTHING): rápido e SEM
+  // floodar o log do Postgres com erros de chave duplicada no re-scan.
+  let novos = 0;
+  const BATCH = 500;
+  for (let i = 0; i < rows.length; i += BATCH) {
+    const res = await prisma.processo.createMany({
+      data: rows.slice(i, i + BATCH),
+      skipDuplicates: true,
+    });
+    novos += res.count;
   }
 
   await prisma.fonte.update({
