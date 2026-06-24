@@ -17,7 +17,8 @@ datasource db {
 // ─────────────────────────────────────────────
 enum Area {
   TRABALHISTA
-  ESTADUAL // TJ (cível/criminal/família etc.)
+  CRIMINAL // TJ — varas criminais
+  ESTADUAL // TJ (cível/família/fazenda etc.)
   FEDERAL // TRF
   ELEITORAL // TRE/TSE
   OUTRO
@@ -29,6 +30,9 @@ model Fonte {
   datajudAlias  String // ex.: "api_publica_trt15", "api_publica_tjsp"
   // Filtro pelo NOME do órgão julgador no DataJud (a "comarca"/vara). Ex.: "Ribeirão Preto".
   orgaoContains String
+  // Opcional: o órgão deve conter PELO MENOS UMA destas palavras (separadas por vírgula).
+  // Ex.: "Criminal,Júri" para pegar todas as varas criminais da comarca.
+  orgaoContainsAny String?
   area          Area     @default(TRABALHISTA)
   ativo         Boolean  @default(true)
   // Controle incremental: maior dataAjuizamento (AAAAMMDDHHMMSS) já ingerido.

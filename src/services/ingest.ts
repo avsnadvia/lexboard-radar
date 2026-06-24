@@ -55,9 +55,14 @@ export async function ingestDistribuidos(
   const gte = base < rescanFrom ? base : rescanFrom;
   const lte = agoraAjuizamento();
 
+  const orgaoContainsAny = (fonte.orgaoContainsAny ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
   const hits = await datajudDistribuidos({
     alias: fonte.datajudAlias,
     orgaoContains: fonte.orgaoContains,
+    orgaoContainsAny: orgaoContainsAny.length > 0 ? orgaoContainsAny : undefined,
     gte,
     lte,
     onPage,

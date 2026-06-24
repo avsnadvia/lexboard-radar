@@ -31,6 +31,10 @@ router.post(
     const nome = typeof b.nome === "string" ? b.nome.trim() : "";
     const datajudAlias = typeof b.datajudAlias === "string" ? b.datajudAlias.trim() : "";
     const orgaoContains = typeof b.orgaoContains === "string" ? b.orgaoContains.trim() : "";
+    const orgaoContainsAny =
+      typeof b.orgaoContainsAny === "string" && b.orgaoContainsAny.trim()
+        ? b.orgaoContainsAny.trim()
+        : null;
     const area = typeof b.area === "string" && AREAS.has(b.area) ? (b.area as Area) : Area.OUTRO;
     const cursorAjuizamento =
       typeof b.cursorAjuizamento === "string" && b.cursorAjuizamento
@@ -42,7 +46,7 @@ router.post(
     }
     try {
       const fonte = await prisma.fonte.create({
-        data: { nome, datajudAlias, orgaoContains, area, cursorAjuizamento },
+        data: { nome, datajudAlias, orgaoContains, orgaoContainsAny, area, cursorAjuizamento },
       });
       res.status(201).json(fonte);
     } catch (e) {

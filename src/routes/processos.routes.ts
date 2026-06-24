@@ -112,6 +112,43 @@ router.get(
   })
 );
 
+// Agregado por campo (assunto = tipo de crime/ação, orgao = vara, classe). Visão criminal.
+router.get(
+  "/agregado",
+  wrap(async (req, res) => {
+    const where = buildProcessoWhere(filtro(req.query));
+    const campo = String(req.query.campo ?? "assunto");
+    const limit = Math.min(50, Math.max(1, num(req.query.limit, 15)));
+    const contagem = new Map<string, number>();
+    if (campo === "orgao") {
+      const rows = await prisma.processo.findMany({ where, select: { orgaoJulgador: true } });
+      for (const r of rows) {
+        const v = (r.orgaoJulgador ?? "").trim();
+        if (v) contagem.set(v, (contagem.get(v) ?? 0) + 1);
+      }
+    } else if (campo === "classe") {
+      const rows = await prisma.processo.findMany({ where, select: { classe: true } });
+      for (const r of rows) {
+        const v = (r.classe ?? "").trim();
+        if (v) contagem.set(v, (contagem.get(v) ?? 0) + 1);
+      }
+    } else {
+      const rows = await prisma.processo.findMany({ where, select: { assuntos: true } });
+      for (const r of rows) {
+        for (const a of (r.assuntos ?? "").split(";")) {
+          const v = a.trim();
+          if (v) contagem.set(v, (contagem.get(v) ?? 0) + 1);
+        }
+      }
+    }
+    const items = [...contagem.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, limit)
+      .map(([rotulo, qtd]) => ({ rotulo, qtd }));
+    res.json({ items });
+  })
+);
+
 // Exportar processos filtrados em CSV.
 router.get(
   "/processos.csv",

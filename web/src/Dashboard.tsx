@@ -42,6 +42,16 @@ const rotuloMes = (m: string) => {
   return `${MESES[Number(mm) - 1] ?? mm}/${ano.slice(2)}`;
 };
 
+const AREA_LABEL: Record<string, string> = {
+  TRABALHISTA: "Trabalhista",
+  CRIMINAL: "Criminal",
+  ESTADUAL: "Cível/Estadual",
+  FEDERAL: "Federal",
+  ELEITORAL: "Eleitoral",
+  OUTRO: "Outros",
+};
+const AREA_ORDEM = ["TRABALHISTA", "CRIMINAL", "ESTADUAL", "FEDERAL", "ELEITORAL", "OUTRO"];
+
 const PAGE_SIZE = 25;
 
 export default function Dashboard({ user, onLogout }: { user: User; onLogout: () => void }) {
@@ -51,6 +61,8 @@ export default function Dashboard({ user, onLogout }: { user: User; onLogout: ()
     null
   );
   const [ranking, setRanking] = useState<{ empresa: string; qtd: number }[]>([]);
+  const [crimePorTipo, setCrimePorTipo] = useState<{ rotulo: string; qtd: number }[]>([]);
+  const [crimePorVara, setCrimePorVara] = useState<{ rotulo: string; qtd: number }[]>([]);
   const [evolucao, setEvolucao] = useState<{ mes: string; qtd: number }[]>([]);
   const [processos, setProcessos] = useState<Processo[]>([]);
   const [total, setTotal] = useState(0);
@@ -72,21 +84,42 @@ export default function Dashboard({ user, onLogout }: { user: User; onLogout: ()
     void carregarFontes();
   }, [carregarFontes]);
 
+  // Aba padrão = primeira área disponível (assim que as fontes carregam).
+  useEffect(() => {
+    if (!filtros.area && fontes.length > 0) {
+      const primeira = AREA_ORDEM.find((a) => fontes.some((f) => f.area === a));
+      if (primeira) setFiltros((prev) => ({ ...prev, area: primeira }));
+    }
+  }, [fontes, filtros.area]);
+
   const carregar = useCallback(async (f: Filtros, pg: number) => {
     setCarregando(true);
     setErro("");
     try {
-      const [st, rk, ev, pr] = await Promise.all([
-        api.stats(qsDe(f)),
-        api.ranking(qsDe(f, { limit: "15" })),
-        api.evolucao(qsDe(f)),
+      const base = qsDe(f);
+      const [st, ev, pr] = await Promise.all([
+        api.stats(base),
+        api.evolucao(base),
         api.processos(qsDe(f, { page: String(pg), pageSize: String(PAGE_SIZE) })),
       ]);
       setStats(st);
-      setRanking(rk.items);
       setEvolucao(ev.items);
       setProcessos(pr.items);
       setTotal(pr.total);
+      if (f.area === "CRIMINAL") {
+        const [tipos, varas] = await Promise.all([
+          api.agregado(qsDe(f, { campo: "assunto", limit: "15" })),
+          api.agregado(qsDe(f, { campo: "orgao", limit: "15" })),
+        ]);
+        setCrimePorTipo(tipos.items);
+        setCrimePorVara(varas.items);
+        setRanking([]);
+      } else {
+        const rk = await api.ranking(qsDe(f, { limit: "15" }));
+        setRanking(rk.items);
+        setCrimePorTipo([]);
+        setCrimePorVara([]);
+      }
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Erro ao carregar");
     } finally {
@@ -106,6 +139,14 @@ export default function Dashboard({ user, onLogout }: { user: User; onLogout: ()
   const totalPaginas = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const maxQtd = ranking.length ? ranking[0].qtd : 1;
   const maxMes = evolucao.length ? Math.max(...evolucao.map((e) => e.qtd)) : 1;
+  const ehCriminal = filtros.area === "CRIMINAL";
+  const maxTipo = crimePorTipo.length ? crimePorTipo[0].qtd : 1;
+  const maxVara = crimePorVara.length ? crimePorVara[0].qtd : 1;
+  const areasDisponiveis = AREA_ORDEM.filter((a) => fontes.some((f) => f.area === a));
+  const trocarAba = (area: string) => {
+    setPage(1);
+    setFiltros({ ...FILTROS_VAZIO, area });
+  };
 
   return (
     <div className="min-h-full">
@@ -136,26 +177,36 @@ export default function Dashboard({ user, onLogout }: { user: User; onLogout: ()
       </header>
 
       <main className="mx-auto max-w-7xl space-y-5 p-4">
+        {areasDisponiveis.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {areasDisponiveis.map((a) => (
+              <button
+                key={a}
+                onClick={() => trocarAba(a)}
+                className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                  filtros.area === a
+                    ? "bg-brand-dark text-white"
+                    : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                {AREA_LABEL[a] ?? a}
+              </button>
+            ))}
+          </div>
+        )}
+
         <Card className="p-4">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-6">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <Field label="Fonte">
               <Select value={filtros.fonteId} onChange={(e) => aplicar({ fonteId: e.target.value })}>
-                <option value="">Todas</option>
-                {fontes.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.nome}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Área">
-              <Select value={filtros.area} onChange={(e) => aplicar({ area: e.target.value })}>
-                <option value="">Todas</option>
-                <option value="TRABALHISTA">Trabalhista</option>
-                <option value="ESTADUAL">Estadual</option>
-                <option value="FEDERAL">Federal</option>
-                <option value="ELEITORAL">Eleitoral</option>
-                <option value="OUTRO">Outro</option>
+                <option value="">Todas desta área</option>
+                {fontes
+                  .filter((f) => f.area === filtros.area)
+                  .map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.nome}
+                    </option>
+                  ))}
               </Select>
             </Field>
             <Field label="De">
@@ -191,7 +242,7 @@ export default function Dashboard({ user, onLogout }: { user: User; onLogout: ()
             <button
               onClick={() => {
                 setPage(1);
-                setFiltros(FILTROS_VAZIO);
+                setFiltros({ ...FILTROS_VAZIO, area: filtros.area });
               }}
               className="text-sm text-slate-500 hover:text-slate-700"
             >
@@ -238,11 +289,23 @@ export default function Dashboard({ user, onLogout }: { user: User; onLogout: ()
           </Card>
         )}
 
-        <Card className="p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-bold text-slate-700">
-              Empresas mais demandadas (reclamadas)
-            </h2>
+        {ehCriminal && (
+          <div className="grid gap-5 lg:grid-cols-2">
+            <CardBarras
+              titulo="Tipos de crime / ação mais distribuídos"
+              itens={crimePorTipo}
+              max={maxTipo}
+            />
+            <CardBarras titulo="Distribuição por vara" itens={crimePorVara} max={maxVara} />
+          </div>
+        )}
+
+        {!ehCriminal && (
+          <Card className="p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-sm font-bold text-slate-700">
+                Empresas mais demandadas (reclamadas)
+              </h2>
             <Button
               variant="outline"
               onClick={() => void baixarCsv(`/api/ranking.csv?${qsDe(filtros)}`, "ranking_reclamados.csv")}
@@ -275,7 +338,8 @@ export default function Dashboard({ user, onLogout }: { user: User; onLogout: ()
               ))}
             </div>
           )}
-        </Card>
+          </Card>
+        )}
 
         <Card>
           <div className="flex items-center justify-between border-b border-slate-200 p-4">
@@ -297,8 +361,8 @@ export default function Dashboard({ user, onLogout }: { user: User; onLogout: ()
                   <th className="px-4 py-2 font-semibold">Número</th>
                   <th className="px-4 py-2 font-semibold">Vara</th>
                   <th className="px-4 py-2 font-semibold">Classe</th>
-                  <th className="px-4 py-2 font-semibold">Reclamante</th>
-                  <th className="px-4 py-2 font-semibold">Reclamado</th>
+                  <th className="px-4 py-2 font-semibold">{ehCriminal ? "Autor (MP)" : "Reclamante"}</th>
+                  <th className="px-4 py-2 font-semibold">{ehCriminal ? "Réu" : "Reclamado"}</th>
                 </tr>
               </thead>
               <tbody>
@@ -385,6 +449,47 @@ function StatCard({ label, value }: { label: string; value: number }) {
     <Card className="p-4">
       <div className="text-2xl font-extrabold text-brand-dark">{value.toLocaleString("pt-BR")}</div>
       <div className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</div>
+    </Card>
+  );
+}
+
+function CardBarras({
+  titulo,
+  itens,
+  max,
+}: {
+  titulo: string;
+  itens: { rotulo: string; qtd: number }[];
+  max: number;
+}) {
+  return (
+    <Card className="p-4">
+      <h2 className="mb-3 text-sm font-bold text-slate-700">{titulo}</h2>
+      {itens.length === 0 ? (
+        <p className="py-6 text-center text-sm text-slate-400">Sem dados para os filtros.</p>
+      ) : (
+        <div className="space-y-1.5">
+          {itens.map((r, i) => (
+            <div key={r.rotulo} className="flex items-center gap-3">
+              <div className="w-6 text-right text-xs font-semibold text-slate-400">{i + 1}</div>
+              <div className="flex-1">
+                <div className="mb-0.5 flex justify-between text-xs">
+                  <span className="truncate pr-2 font-medium text-slate-700" title={r.rotulo}>
+                    {r.rotulo}
+                  </span>
+                  <span className="font-semibold text-slate-500">{r.qtd}</span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    className="h-full rounded-full bg-brand-blue"
+                    style={{ width: `${Math.max(3, (r.qtd / max) * 100)}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </Card>
   );
 }

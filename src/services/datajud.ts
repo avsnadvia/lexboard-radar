@@ -15,6 +15,8 @@ export interface DataJudHit {
 export interface DataJudQuery {
   alias: string; // ex.: "api_publica_trt15"
   orgaoContains: string; // ex.: "Ribeirão Preto"
+  // Opcional: o órgão deve conter PELO MENOS UMA destas palavras (ex.: ["Criminal","Júri"]).
+  orgaoContainsAny?: string[];
   gte: string; // AAAAMMDDHHMMSS
   lte: string; // AAAAMMDDHHMMSS
   pageSize?: number;
@@ -34,24 +36,32 @@ export async function datajudDistribuidos(q: DataJudQuery): Promise<DataJudHit[]
 
   // teto de segurança contra loop infinito (~20M registros)
   for (let guard = 0; guard < 100000; guard++) {
-    const body: Record<string, unknown> = {
-      size: pageSize,
-      query: {
+    const must: Record<string, unknown>[] = [
+      { range: { dataAjuizamento: { gte: q.gte, lte: q.lte } } },
+      {
         bool: {
-          must: [
-            { range: { dataAjuizamento: { gte: q.gte, lte: q.lte } } },
-            {
-              bool: {
-                minimum_should_match: 1,
-                should: [
-                  { match_phrase: { "orgaoJulgador.nome": q.orgaoContains } },
-                  { wildcard: { "orgaoJulgador.nome": `*${q.orgaoContains}*` } },
-                ],
-              },
-            },
+          minimum_should_match: 1,
+          should: [
+            { match_phrase: { "orgaoJulgador.nome": q.orgaoContains } },
+            { wildcard: { "orgaoJulgador.nome": `*${q.orgaoContains}*` } },
           ],
         },
       },
+    ];
+    if (q.orgaoContainsAny && q.orgaoContainsAny.length > 0) {
+      must.push({
+        bool: {
+          minimum_should_match: 1,
+          should: q.orgaoContainsAny.flatMap((kw) => [
+            { match_phrase: { "orgaoJulgador.nome": kw } },
+            { wildcard: { "orgaoJulgador.nome": `*${kw}*` } },
+          ]),
+        },
+      });
+    }
+    const body: Record<string, unknown> = {
+      size: pageSize,
+      query: { bool: { must } },
       sort: [{ "numeroProcesso.keyword": { order: "asc" } }],
     };
     if (searchAfter) body.search_after = searchAfter;
